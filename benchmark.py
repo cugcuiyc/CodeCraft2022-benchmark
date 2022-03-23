@@ -11,7 +11,7 @@ import numpy as np
 import mpld3
 import matplotlib.pyplot as plt
 from mpld3._server import serve as mpld3_server
-
+import copy
 
 cname, sname, qos, qos_lim = None, None, None, None
 client_demand = None
@@ -19,13 +19,14 @@ bandwidth = None
 time_label = None
 cname_map = {}
 sname_map = {}
+ratio = 0
 
 class IOFile():
-    demand = 'data/demand.csv'
-    qos = 'data/qos.csv'
-    bandwidth = 'data/site_bandwidth.csv'
-    config = 'data/config.ini'
-    output = 'output/solution.txt'
+    demand = '/data/demand.csv'
+    qos = '/data/qos.csv'
+    bandwidth = '/data/site_bandwidth.csv'
+    config = '/data/config.ini'
+    output = '/output/solution.txt'
 
 
 class Plot(ABC):
@@ -56,15 +57,30 @@ class ServerSeriesPlot(Plot):  # x: time  y: many client bandwidth height. P.S. 
         self.y_accu += y_height
 
     def plot(self):
+        temp = copy.deepcopy(self.bottom)
         idx = np.argsort(self.y_accu)
-        sep_idx = int(len(idx) * 0.8)
+        idx_non_sort = [i for i in range(len(self.y_accu))]
+        sep_idx = int(len(idx) * ratio)
+        sep_idx_95 = int(len(idx) * 0.95)
+        plt.subplot(121)
         for label, height in zip(self.labels, np.array(self.heights)[:, idx]):
-            plt.bar(self.time[sep_idx:], bottom=self.bottom[sep_idx:], height=height[sep_idx:], label=label)
+            plt.bar(self.time[sep_idx:sep_idx_95], bottom=self.bottom[sep_idx:sep_idx_95], height=height[sep_idx:sep_idx_95], label=label)
             self.bottom += height
-        time_str = self.time[idx].tolist()
-        time_str = [ str(i) for i in time_str]
-        for x, y, label in zip(self.time[sep_idx:], self.bottom[sep_idx:], time_str[sep_idx:]):
-            plt.text(x, y, label, ha='center', va='bottom')
+        plt.title("sorted")
+        plt.legend()
+
+        # plt.subplot(122)
+        # for label, height in zip(self.labels, np.array(self.heights)[:, idx_non_sort]):
+        #     plt.bar(self.time[sep_idx:sep_idx_95], bottom=temp[sep_idx:sep_idx_95], height=height[sep_idx:sep_idx_95], label=label)
+        #     temp += height
+        # plt.title("non-sorted")
+        # plt.legend()
+
+        # time_str = self.time[idx].tolist()
+        # time_str = [str(i) for i in time_str]
+
+        # for x, y, label in zip(self.time[sep_idx:], self.bottom[sep_idx:], time_str[sep_idx:]):
+        #     plt.text(x, y, label, ha='center', va='bottom')
         del self.labels, self.bottom, self.heights, self.time, self.y_accu
     
     def add_client_time_series(self, matrix: np.ndarray, c_idx_list: List[int]):  # time * client  value: bandwidth
@@ -354,7 +370,8 @@ class OutputAnalyser():
             self._process_server_res(c_idx, s, res, line)
             res_accum += int(res)
         if res_accum != client_demand[self.curr_time_step, c_idx]:
-            err_print(f'bandwidth accumulation of {cname[c_idx]} is not satisfied', line)
+            # err_print(f'bandwidth accumulation of {cname[c_idx]} is not satisfied', line)
+            err_print(f'bandwidth accumulation of {res_accum} is not satisfied', line)
         self._check_time_step_finished()
     
     def _process_server_res(self, c_idx: int, server_name: str, res_str: str, line: str):
@@ -424,14 +441,14 @@ def gauge_time(args):
         os.system(' '.join(args))
     end_time = time.time()
     print(f'compile and run time: {(end_time - start_time):.4f}')
-
+#61144394
 if __name__ == '__main__':
     validate_file_exist()
     get_input_data()
-    if len(sys.argv) == 1:
-        gauge_time('sh build_and_run.sh')
-    else:
-        gauge_time(sys.argv[1:])
+    # if len(sys.argv) == 1:
+    #     gauge_time('sh build_and_run.sh')
+    # else:
+    #     gauge_time(sys.argv[1:])
     analyser = OutputAnalyser()
     analyser.read_file(IOFile.output)
     analyser.output_result()
